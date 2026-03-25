@@ -1,0 +1,9 @@
+# Data files - user-specific, don't commit
+data/
+*.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
