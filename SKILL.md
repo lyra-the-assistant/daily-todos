@@ -1,48 +1,43 @@
 ---
 name: daily-todos
-description: Daily todo management with Apple Reminders sync and slash commands. Use when the user wants to manage daily tasks via /todo add, /todo list, /todo complete commands, or set up automated morning digests.
-metadata:
-  openclaw:
-    emoji: "✅"
-    os: ["darwin"]
-    requires:
-      bins: ["remindctl"]
+description: Daily todo management with native Apple Reminders sync and slash commands. Use when the user wants to manage daily tasks via /todo add, /todo list, /todo complete, /todo delete commands, or set up automated morning digests on macOS.
 ---
 
 # Daily Todos Skill
 
-Daily todo management with Apple Reminders integration.
+Manage daily todos with the macOS Reminders app.
 
-## Slash Commands (via OpenClaw)
+## Use native Reminders automation
 
-| Command | Description |
-|---------|-------------|
-| `/todo add <task>` | Add a new todo for today |
-| `/todo list` | List today's active todos |
-| `/todo all` | List all incomplete todos |
-| `/todo complete <id>` | Mark a todo as complete |
-| `/todo default-add <task>` | Add a daily recurring todo |
-| `/todo defaults` | List default (daily) todos |
-| `/todo default-remove <index>` | Remove a default todo |
-| `/todo morning` | Run morning routine manually |
-| `/todo digest` | Show today's todo digest |
+- Use `scripts/todo.py` for todo operations.
+- The script talks to Apple Reminders through pure AppleScript via `osascript`, not `remindctl` or JXA.
+- Keep Apple Reminders as the source of truth for active todo state.
+- When a task is completed or removed, sync that change to Reminders instead of only changing local notes.
+- Preserve the user's original task language and wording. Do not translate unless explicitly asked.
 
-## Scripts
-
-Located in `scripts/`:
+## Commands
 
 ```bash
-# Add a todo
-python3 scripts/todo.py add "Task description"
+# Add a todo for today
+python3 scripts/todo.py add "任务内容"
+
+# Add with explicit due date
+python3 scripts/todo.py add "任务内容" --due 2026-03-31
 
 # List today's todos
 python3 scripts/todo.py list
 
-# List all incomplete
+# List all incomplete todos in Daily Todos
 python3 scripts/todo.py all
 
-# Complete a todo
+# Complete a todo by short ID
 python3 scripts/todo.py complete <id>
+
+# Delete a todo by short ID
+python3 scripts/todo.py delete <id>
+
+# Delete all todos in Daily Todos
+python3 scripts/todo.py clear
 
 # Morning routine (carry over + defaults)
 python3 scripts/todo.py morning
@@ -50,52 +45,33 @@ python3 scripts/todo.py morning
 # Show digest
 python3 scripts/todo.py digest
 
-# Manage defaults
-python3 scripts/todo.py default-add "Daily task"
+# Manage default recurring todos
+python3 scripts/todo.py default-add "每日任务"
 python3 scripts/todo.py defaults
 python3 scripts/todo.py default-remove <index>
 ```
 
-## Data Storage
+## Data model
 
-- **Active todos**: Apple Reminders list "Daily Todos"
-- **Default todos**: `data/defaults.json`
-- **Todo metadata**: Embedded in reminder body as `[ID: xxx]`
+- **Reminders list:** `Daily Todos`
+- **Default todos:** `data/defaults.json`
+- **Todo metadata:** store the short ID in reminder notes as `[ID: xxx]`
 
-## How It Works
+## Output rules
 
-### Morning Routine
+- Present todos in the user's original language.
+- Prefer concise, execution-oriented groupings when reorganizing tasks.
+- If the user asks to reset from scratch, remove obsolete items from Reminders too.
 
-1. Finds incomplete todos from yesterday
-2. Carries them over to today
-3. Adds default daily todos
-4. Generates and sends digest
+## Morning routine
 
-### Default Todos
-
-Stored in `data/defaults.json` and automatically added each morning:
-
-```json
-[
-  {"id": "abc123", "title": "Check email"},
-  {"id": "def456", "title": "Review calendar"}
-]
-```
-
-## Cron Setup
-
-Schedule daily morning digest at 9:00 AM:
-
-```bash
-openclaw cron add \
-  --name "daily-todos-morning" \
-  --schedule "cron:0 9 * * *" \
-  --timezone "Asia/Shanghai" \
-  --command "python3 ~/.openclaw/workspace/skills/daily-todos/scripts/todo.py morning && python3 ~/.openclaw/workspace/skills/daily-todos/scripts/todo.py digest"
-```
+1. Find incomplete todos due yesterday.
+2. Carry them over to today.
+3. Add default daily todos if missing.
+4. Generate a digest.
 
 ## Requirements
 
-- macOS with Reminders access
-- `remindctl` (`brew install steipete/tap/remindctl`)
+- macOS
+- Reminders automation permission for `osascript`
 - Python 3
